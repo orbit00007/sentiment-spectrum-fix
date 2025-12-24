@@ -1,655 +1,354 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, BarChart, Bar } from "recharts";
-import { TrendingUp, TrendingDown, Search, Users, FileText, Target, AlertTriangle, ArrowUp, ArrowDown, BarChart3, Globe } from "lucide-react";
+import { useEffect, useState } from "react";
+import Layout from "../components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
+import { TrendingUp, TrendingDown, ArrowUp, ArrowDown, BarChart3, Globe, Target, AlertTriangle, ExternalLink, Lightbulb } from "lucide-react";
+import {
+  getBrands,
+  getBrandName,
+  getModelsUsed,
+  getLLMWiseData,
+  getExecutiveSummary,
+  getRecommendations,
+  getPlatformPresence,
+  getAIVisibilityMetrics,
+  loadAnalyticsFromStorage,
+  initializeWithSampleData,
+  getPrimaryBrand,
+  formatLogoUrl
+} from "../lib/analyticsData";
 
 export default function Dashboard() {
-  // Top Summary Metrics Data
-  const summaryMetrics = {
-    aiVisibilityScore: { value: 87, change: 12, trend: "up" },
-    shareOfVoice: { value: 34, change: 5, trend: "up" },
-    visibilityGrowth: { value: 24.7, change: 8.3, trend: "up" },
-    contentEfficiency: { value: 3.2, change: -0.4, trend: "down" }
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loaded = loadAnalyticsFromStorage();
+    if (!loaded) {
+      initializeWithSampleData();
+    }
+    setIsLoading(false);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const brands = getBrands();
+  const primaryBrand = getPrimaryBrand();
+  const brandName = getBrandName();
+  const modelsUsed = getModelsUsed();
+  const llmData = getLLMWiseData();
+  const executiveSummary = getExecutiveSummary();
+  const recommendations = getRecommendations();
+  const platformPresence = getPlatformPresence();
+  const metrics = getAIVisibilityMetrics();
+
+  // Prepare chart data
+  const brandScoreData = brands.map(b => ({
+    name: b.brand.length > 15 ? b.brand.slice(0, 15) + '...' : b.brand,
+    fullName: b.brand,
+    geoScore: b.geo_score,
+    mentionScore: b.mention_score,
+    logo: b.logo
+  })).sort((a, b) => b.geoScore - a.geoScore);
+
+  const llmChartData = Object.entries(llmData).map(([name, data]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    mentions: data.mentions_count,
+    sources: data.sources,
+    avgRank: data.average_rank
+  }));
+
+  const outlookColors: Record<string, string> = {
+    'Positive': '#10b981',
+    'Neutral': '#6b7280',
+    'Negative': '#ef4444'
   };
 
-  // AI Search Visibility Data
-  const aiSearchData = [
-    { platform: "ChatGPT", appearances: 89, rankingKeywords: 12, topPositions: 7, avgPosition: 2.3 },
-    { platform: "Gemini", appearances: 67, rankingKeywords: 8, topPositions: 5, avgPosition: 2.8 },
-    { platform: "Perplexity", appearances: 54, rankingKeywords: 6, topPositions: 3, avgPosition: 3.1 }
-  ];
-
-  const keywordTrends = [
-    { keyword: "AI Marketing ROI", week1: 3, week2: 2, week3: 1, week4: 1, change: "up" },
-    { keyword: "Marketing Automation", week1: 5, week2: 4, week3: 3, week4: 2, change: "up" },
-    { keyword: "B2B Lead Generation", week1: 8, week2: 7, week3: 6, week4: 4, change: "up" },
-    { keyword: "Content Strategy", week1: 12, week2: 10, week3: 8, week4: 7, change: "up" }
-  ];
-
-  const answerPositioning = { topThree: 68, topFive: 82, cited: 94 };
-
-  // Community Visibility Data
-  const communityData = [
-    { platform: "Reddit", mentions: 45, sentiment: "Positive", growth: 12 },
-    { platform: "Discord", mentions: 23, sentiment: "Neutral", growth: -3 },
-    { platform: "Product Hunt", mentions: 18, sentiment: "Positive", growth: 8 }
-  ];
-
-  const sentimentTrend = [
-    { week: "Week 1", positive: 65, neutral: 25, negative: 10 },
-    { week: "Week 2", positive: 70, neutral: 22, negative: 8 },
-    { week: "Week 3", positive: 72, neutral: 20, negative: 8 },
-    { week: "Week 4", positive: 76, neutral: 18, negative: 6 }
-  ];
-
-  const influencerMentions = [
-    { user: "@marketingpro", followers: "25K", mention: "RedoraAI's approach to AI marketing is game-changing", platform: "Twitter" },
-    { user: "sarah_growth", followers: "15K", mention: "Finally, a tool that tracks AI search visibility", platform: "LinkedIn" }
-  ];
-
-  // Content Impact Data
-  const topPerformingContent = [
-    {
-      title: "AI Marketing ROI: Complete Guide",
-      type: "Blog Post",
-      visibilityContribution: 30,
-      aiAppearances: 24,
-      communityMentions: 12,
-      published: "2 weeks ago"
-    },
-    {
-      title: "Marketing Automation Best Practices",
-      type: "Case Study",
-      visibilityContribution: 18,
-      aiAppearances: 15,
-      communityMentions: 8,
-      published: "1 month ago"
-    },
-    {
-      title: "B2B Lead Generation Strategies",
-      type: "LinkedIn Article",
-      visibilityContribution: 15,
-      aiAppearances: 12,
-      communityMentions: 6,
-      published: "3 weeks ago"
-    }
-  ];
-
-  const contentReleaseData = [
-    { date: "Jan 1", visibility: 45, content: null },
-    { date: "Jan 8", visibility: 52, content: null },
-    { date: "Jan 15", visibility: 67, content: "AI Marketing ROI Guide" },
-    { date: "Jan 22", visibility: 73, content: null },
-    { date: "Jan 29", visibility: 89, content: "Automation Case Study" }
-  ];
-
-  // Competitor Signals Data
-  const competitorDeltas = [
-    { keyword: "AI Marketing Tools", competitor: "HubSpot", change: 8, direction: "up", action: "Create comparison guide" },
-    { keyword: "Marketing Automation", competitor: "Salesforce", change: -3, direction: "down", action: "Capitalize on their decline" },
-    { keyword: "Content Generation", competitor: "Jasper", change: 12, direction: "up", action: "Reclaim position with fresh content" }
-  ];
-
-  const shareOfVoiceTrend = [
-    { week: "Week 1", redora: 28, hubspot: 35, salesforce: 25, others: 12 },
-    { week: "Week 2", redora: 30, hubspot: 33, salesforce: 24, others: 13 },
-    { week: "Week 3", redora: 32, hubspot: 32, salesforce: 23, others: 13 },
-    { week: "Week 4", redora: 34, hubspot: 31, salesforce: 22, others: 13 }
-  ];
+  const tierColors: Record<string, string> = {
+    'High': '#10b981',
+    'Medium': '#f59e0b',
+    'Low': '#ef4444'
+  };
 
   return (
-    <div className="space-y-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Executive Summary</h1>
-        <p className="text-gray-600">High-level snapshot and decision-making insights for leadership</p>
-      </div>
+    <Layout>
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Executive Dashboard</h1>
+          <p className="text-muted-foreground">Brand visibility analysis for <span className="font-semibold text-primary">{brandName}</span></p>
+        </div>
 
-      {/* GEO Score & Key Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-500">GEO Score</h3>
-              <div className={`flex items-center ${summaryMetrics.aiVisibilityScore.trend === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
-                {summaryMetrics.aiVisibilityScore.trend === 'up' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                <span className="text-sm ml-1">+{summaryMetrics.aiVisibilityScore.change}</span>
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-muted-foreground">GEO Score</h3>
+                <Badge className={`${tierColors[metrics.tier] === '#10b981' ? 'bg-emerald-100 text-emerald-800' : tierColors[metrics.tier] === '#f59e0b' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
+                  {metrics.tier}
+                </Badge>
               </div>
-            </div>
-            <div className="text-3xl font-bold text-gray-900">{summaryMetrics.aiVisibilityScore.value}</div>
-            <p className="text-sm text-gray-600 mt-1">Global engagement optimization</p>
-          </CardContent>
-        </Card>
+              <div className="text-3xl font-bold text-foreground">{metrics.score}</div>
+              <p className="text-sm text-muted-foreground mt-1">Brand visibility score</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-500">Brand Mentions</h3>
-              <div className="flex items-center text-emerald-600">
-                <ArrowUp className="w-4 h-4" />
-                <span className="text-sm ml-1">+18%</span>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-muted-foreground">Mention Score</h3>
+                <Badge className={`${tierColors[metrics.mentionTier] === '#10b981' ? 'bg-emerald-100 text-emerald-800' : tierColors[metrics.mentionTier] === '#f59e0b' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
+                  {metrics.mentionTier}
+                </Badge>
               </div>
-            </div>
-            <div className="text-3xl font-bold text-gray-900">247</div>
-            <p className="text-sm text-gray-600 mt-1">across top 3 LLMs</p>
-          </CardContent>
-        </Card>
+              <div className="text-3xl font-bold text-foreground">{metrics.mentionScore}</div>
+              <p className="text-sm text-muted-foreground mt-1">Across {metrics.mentionCount} mentions</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-500">Share of Voice</h3>
-              <div className={`flex items-center ${summaryMetrics.shareOfVoice.trend === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
-                {summaryMetrics.shareOfVoice.trend === 'up' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                <span className="text-sm ml-1">+{summaryMetrics.shareOfVoice.change}%</span>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-muted-foreground">Competitors Analyzed</h3>
               </div>
-            </div>
-            <div className="text-3xl font-bold text-gray-900">{summaryMetrics.shareOfVoice.value}%</div>
-            <p className="text-sm text-gray-600 mt-1">vs competitors</p>
-          </CardContent>
-        </Card>
-      </div>
+              <div className="text-3xl font-bold text-foreground">{metrics.totalBrands}</div>
+              <p className="text-sm text-muted-foreground mt-1">Brands in analysis</p>
+            </CardContent>
+          </Card>
 
-      {/* Share of Voice Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <BarChart3 className="w-5 h-5 mr-2" />
-            Share of Voice Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={shareOfVoiceTrend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="redora" fill="#3b82f6" name="RedoraAI" />
-                <Bar dataKey="hubspot" fill="#ef4444" name="HubSpot" />
-                <Bar dataKey="salesforce" fill="#f59e0b" name="Salesforce" />
-                <Bar dataKey="others" fill="#6b7280" name="Others" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Visibility Progress Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Target className="w-5 h-5 mr-2" />
-            Visibility Progress Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-blue-900">ChatGPT</span>
-                <span className="text-sm text-blue-700">74% to target</span>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-muted-foreground">LLMs Used</h3>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
-                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '74%' }}></div>
-              </div>
-            </div>
-            
-            <div className="p-4 bg-green-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-green-900">Gemini</span>
-                <span className="text-sm text-green-700">84% to target</span>
-              </div>
-              <div className="w-full bg-green-200 rounded-full h-2">
-                <div className="bg-green-600 h-2 rounded-full" style={{ width: '84%' }}></div>
-              </div>
-            </div>
-            
-            <div className="p-4 bg-orange-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-orange-900">Perplexity</span>
-                <span className="text-sm text-orange-700">54% to target</span>
-              </div>
-              <div className="w-full bg-orange-200 rounded-full h-2">
-                <div className="bg-orange-600 h-2 rounded-full" style={{ width: '54%' }}></div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Content Gap & Competitive Opportunity Cards */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <AlertTriangle className="w-5 h-5 mr-2" />
-            Content Gap & Competitive Opportunities
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="border border-red-200 bg-red-50 rounded-lg p-4">
-              <div className="flex items-center mb-2">
-                <TrendingDown className="w-5 h-5 text-red-600 mr-2" />
-                <h4 className="font-medium text-red-900">Content Generation Gap</h4>
-              </div>
-              <p className="text-sm text-red-700 mb-3">
-                <strong>Jasper gained 12 mentions</strong> in AI marketing automation while we have zero coverage in this space.
-              </p>
-              <Button size="sm" className="w-full bg-red-600 hover:bg-red-700">
-                <FileText className="w-4 h-4 mr-2" />
-                Create Content Plan
-              </Button>
-            </div>
-            
-            <div className="border border-green-200 bg-green-50 rounded-lg p-4">
-              <div className="flex items-center mb-2">
-                <TrendingUp className="w-5 h-5 text-green-600 mr-2" />
-                <h4 className="font-medium text-green-900">Competitive Opportunity</h4>
-              </div>
-              <p className="text-sm text-green-700 mb-3">
-                <strong>Marketing Automation: Salesforce mentions dropped</strong> 15% this week. Prime opportunity to capture share.
-              </p>
-              <Button size="sm" className="w-full bg-green-600 hover:bg-green-700">
-                <Target className="w-4 h-4 mr-2" />
-                Exploit Opportunity
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Platform Presence Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Globe className="w-5 h-5 mr-2" />
-            Platform Presence Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 mb-4">
-              Brand presence on key AI-relevant platforms
-            </p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">R</span>
-                  </div>
-                  <span className="font-medium text-gray-900">Reddit</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-600 text-sm">✅ Present</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">P</span>
-                  </div>
-                  <span className="font-medium text-gray-900">Product Hunt</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-yellow-600 text-sm">⚠️ Needs Update</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">M</span>
-                  </div>
-                  <span className="font-medium text-gray-900">Medium</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-600 text-sm">✅ Present</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">W</span>
-                  </div>
-                  <span className="font-medium text-gray-900">Wikipedia</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-red-600 text-sm">❌ Missing</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">G</span>
-                  </div>
-                  <span className="font-medium text-gray-900">GitHub</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-600 text-sm">✅ Present</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Button variant="outline" size="sm" className="w-full">
-                <Globe className="w-4 h-4 mr-2" />
-                Claim Wikipedia Page
-              </Button>
-              <Button variant="outline" size="sm" className="w-full">
-                <ArrowUp className="w-4 h-4 mr-2" />
-                Submit Product Hunt Update
-              </Button>
-              <Button variant="outline" size="sm" className="w-full">
-                <FileText className="w-4 h-4 mr-2" />
-                Add Medium Article
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-
-
-      {/* SECTION 2: AI Search Visibility */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Search className="w-5 h-5 mr-2" />
-            AI Search Visibility
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {/* Platform Appearances */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-4">Appearances by Platform</h4>
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Platform</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">Appearances</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">Keywords</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">Avg Position</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {aiSearchData.map((platform, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">{platform.platform}</td>
-                        <td className="px-4 py-4 text-sm text-center text-gray-600">{platform.appearances}</td>
-                        <td className="px-4 py-4 text-sm text-center text-gray-600">{platform.rankingKeywords}</td>
-                        <td className="px-4 py-4 text-sm text-center">
-                          <Badge variant="outline" className="text-xs">
-                            #{platform.avgPosition}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Answer Positioning Score */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-4">Answer Positioning Score</h4>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
-                  <span className="text-sm font-medium text-emerald-900">Top 3 Citations</span>
-                  <span className="text-lg font-bold text-emerald-900">{answerPositioning.topThree}%</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                  <span className="text-sm font-medium text-blue-900">Top 5 Citations</span>
-                  <span className="text-lg font-bold text-blue-900">{answerPositioning.topFive}%</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm font-medium text-gray-900">Total Cited</span>
-                  <span className="text-lg font-bold text-gray-900">{answerPositioning.cited}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Keyword Trends */}
-          <div className="mt-6">
-            <h4 className="text-sm font-medium text-gray-700 mb-4">Tracked Keyword Rank Trends</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {keywordTrends.map((keyword, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h5 className="text-sm font-medium text-gray-900">{keyword.keyword}</h5>
-                    <div className={`flex items-center ${keyword.change === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {keyword.change === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500">Current Rank: #{keyword.week4}</div>
-                  <div className="text-xs text-gray-500">Previous: #{keyword.week1}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SECTION 3: Community Visibility */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Users className="w-5 h-5 mr-2" />
-            Community Visibility
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {/* Platform Breakdown */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-4">Platform-Level Breakdown</h4>
-              <div className="space-y-3">
-                {communityData.map((platform, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div>
-                      <h5 className="font-medium text-gray-900">{platform.platform}</h5>
-                      <div className="flex items-center space-x-4 mt-1">
-                        <span className="text-sm text-gray-600">{platform.mentions} mentions</span>
-                        <Badge 
-                          className={`text-xs ${
-                            platform.sentiment === 'Positive' ? 'bg-emerald-100 text-emerald-800' :
-                            platform.sentiment === 'Negative' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}
-                        >
-                          {platform.sentiment}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className={`flex items-center ${platform.growth >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {platform.growth >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                      <span className="text-sm ml-1">{Math.abs(platform.growth)}%</span>
-                    </div>
-                  </div>
+              <div className="flex gap-2 flex-wrap">
+                {modelsUsed.map((model, i) => (
+                  <Badge key={i} variant="outline" className="capitalize">{model}</Badge>
                 ))}
               </div>
-            </div>
+              <p className="text-sm text-muted-foreground mt-3">AI models analyzed</p>
+            </CardContent>
+          </Card>
+        </div>
 
-            {/* Sentiment Trend */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-4">Sentiment Trend</h4>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sentimentTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="week" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="positive" stackId="a" fill="hsl(160, 60%, 45%)" />
-                    <Bar dataKey="neutral" stackId="a" fill="hsl(45, 60%, 60%)" />
-                    <Bar dataKey="negative" stackId="a" fill="hsl(0, 60%, 60%)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+        {/* Brand Score Comparison */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="w-5 h-5 mr-2" />
+              Brand GEO Score Comparison
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={brandScoreData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-background border rounded-lg shadow-lg p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <img src={data.logo} alt="" className="w-6 h-6 rounded" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                              <span className="font-medium">{data.fullName}</span>
+                            </div>
+                            <p className="text-sm">GEO Score: <span className="font-bold">{data.geoScore}</span></p>
+                            <p className="text-sm">Mention Score: <span className="font-bold">{data.mentionScore}</span></p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="geoScore" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Influencer Mentions */}
-          <div className="mt-6">
-            <h4 className="text-sm font-medium text-gray-700 mb-4">Influencer Mentions</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {influencerMentions.map((mention, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">{mention.user}</span>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="outline" className="text-xs">{mention.platform}</Badge>
-                      <Badge variant="secondary" className="text-xs">{mention.followers}</Badge>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600">"{mention.mention}"</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SECTION 4: Content Impact */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <FileText className="w-5 h-5 mr-2" />
-            Content Impact
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {/* Top Performing Content */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-4">Top-Performing Content by Visibility</h4>
-              <div className="space-y-3">
-                {topPerformingContent.map((content, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h5 className="font-medium text-gray-900">{content.title}</h5>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Badge variant="outline" className="text-xs">{content.type}</Badge>
-                          <span className="text-xs text-gray-500">{content.published}</span>
+        {/* Competitors Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Target className="w-5 h-5 mr-2" />
+              Competitor Analysis
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Brand</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">GEO Score</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Mention Score</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">GEO Tier</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Outlook</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {brands.map((brand, index) => (
+                    <tr key={index} className={`border-b hover:bg-muted/50 ${brand.brand === brandName ? 'bg-primary/5' : ''}`}>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={brand.logo} 
+                            alt={brand.brand} 
+                            className="w-8 h-8 rounded object-contain bg-background"
+                            onError={(e) => {
+                              e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(brand.brand)}&background=random&size=32`;
+                            }}
+                          />
+                          <div>
+                            <span className="font-medium text-foreground">{brand.brand}</span>
+                            {brand.brand === brandName && (
+                              <Badge className="ml-2 text-xs" variant="secondary">Primary</Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-emerald-600">{content.visibilityContribution}%</div>
-                        <div className="text-xs text-gray-500">visibility</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>{content.aiAppearances} AI appearances</span>
-                      <span>{content.communityMentions} community mentions</span>
-                    </div>
-                  </div>
+                      </td>
+                      <td className="py-4 px-4 text-center font-semibold">{brand.geo_score}</td>
+                      <td className="py-4 px-4 text-center">{brand.mention_score}</td>
+                      <td className="py-4 px-4 text-center">
+                        <Badge className={`${tierColors[brand.geo_tier] === '#10b981' ? 'bg-emerald-100 text-emerald-800' : tierColors[brand.geo_tier] === '#f59e0b' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
+                          {brand.geo_tier}
+                        </Badge>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className={`inline-flex items-center gap-1 ${brand.outlook === 'Positive' ? 'text-emerald-600' : brand.outlook === 'Negative' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                          {brand.outlook === 'Positive' ? <TrendingUp className="w-4 h-4" /> : brand.outlook === 'Negative' ? <TrendingDown className="w-4 h-4" /> : null}
+                          {brand.outlook}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Executive Summary */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-emerald-600">
+                <TrendingUp className="w-5 h-5 mr-2" />
+                Strengths
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3">
+                {executiveSummary.strengths.map((strength, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <span className="text-emerald-500 mt-1">✓</span>
+                    <span className="text-foreground">{strength}</span>
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ul>
+            </CardContent>
+          </Card>
 
-            {/* Content Release Attribution */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-4">Content → AI Visibility Attribution</h4>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={contentReleaseData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line 
-                      type="monotone" 
-                      dataKey="visibility" 
-                      stroke="hsl(207, 90%, 54%)" 
-                      strokeWidth={2}
-                      dot={(props) => {
-                        if (props.payload && props.payload.content) {
-                          return <circle cx={props.cx} cy={props.cy} r={6} fill="hsl(160, 60%, 45%)" />;
-                        }
-                        return <circle cx={props.cx} cy={props.cy} r={3} fill="hsl(207, 90%, 54%)" />;
-                      }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4 p-3 bg-emerald-50 rounded-lg">
-                <p className="text-sm text-emerald-900">
-                  <strong>AI Marketing ROI Guide</strong> drove 30% of Gemini visibility increase
-                </p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SECTION 5: Competitor Signals */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Target className="w-5 h-5 mr-2" />
-            Competitor Signals
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {/* Keyword-Level Competitor Deltas */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-4">Keyword-Level Competitor Changes</h4>
-              <div className="space-y-3">
-                {competitorDeltas.map((delta, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="font-medium text-gray-900">{delta.keyword}</h5>
-                      <div className={`flex items-center ${delta.direction === 'up' ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {delta.direction === 'up' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                        <span className="text-sm ml-1">{delta.change}</span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">
-                      <strong>{delta.competitor}</strong> {delta.direction === 'up' ? 'gained' : 'lost'} {delta.change} mentions
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">{delta.action}</span>
-                      <Button size="sm" variant="outline">Take Action</Button>
-                    </div>
-                  </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-red-600">
+                <AlertTriangle className="w-5 h-5 mr-2" />
+                Weaknesses
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3">
+                {executiveSummary.weaknesses.map((weakness, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <span className="text-red-500 mt-1">✗</span>
+                    <span className="text-foreground">{weakness}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recommendations */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Lightbulb className="w-5 h-5 mr-2" />
+              Recommendations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {recommendations.slice(0, 4).map((rec, i) => (
+                <div key={i} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge variant={rec.impact === 'High' ? 'destructive' : rec.impact === 'Medium' ? 'secondary' : 'outline'}>
+                      {rec.impact} Impact
+                    </Badge>
+                    <Badge variant="outline">{rec.overall_effort} Effort</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">{rec.overall_insight}</p>
+                  <p className="text-sm font-medium text-foreground">{rec.suggested_action}</p>
+                </div>
+              ))}
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Share of Voice Trend */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-4">Share of Voice Trend</h4>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={shareOfVoiceTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="week" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="redora" stroke="hsl(207, 90%, 54%)" strokeWidth={2} name="RedoraAI" />
-                    <Line type="monotone" dataKey="hubspot" stroke="hsl(0, 84%, 60%)" strokeWidth={2} name="HubSpot" />
-                    <Line type="monotone" dataKey="salesforce" stroke="hsl(160, 60%, 45%)" strokeWidth={2} name="Salesforce" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+        {/* Platform Presence */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Globe className="w-5 h-5 mr-2" />
+              Platform Presence
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+              {Object.entries(platformPresence).map(([platform, url]) => (
+                <div key={platform} className="flex flex-col items-center p-3 border rounded-lg">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${url ? 'bg-emerald-100' : 'bg-muted'}`}>
+                    <span className={`text-sm font-bold ${url ? 'text-emerald-700' : 'text-muted-foreground'}`}>
+                      {platform.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="text-xs capitalize text-center">{platform.replace('_', ' ')}</span>
+                  {url ? (
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 mt-1">
+                      <ExternalLink className="w-3 h-3" />
+                      Visit
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground mt-1">Not listed</span>
+                  )}
+                </div>
+              ))}
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-
-        </CardContent>
-      </Card>
-    </div>
+        {/* Conclusion */}
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-muted-foreground leading-relaxed">{executiveSummary.conclusion}</p>
+          </CardContent>
+        </Card>
+      </div>
+    </Layout>
   );
 }

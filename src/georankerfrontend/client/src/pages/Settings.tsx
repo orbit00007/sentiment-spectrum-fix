@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
-import { Checkbox } from "@/components/ui/checkbox";
+import Layout from "../components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Badge } from "../components/ui/badge";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Progress } from "../components/ui/progress";
+import { Checkbox } from "../components/ui/checkbox";
 import { X, Plus, Edit2, User, Crown, Info, CheckCircle, Settings as SettingsIcon, Target, FileText, Users, MessageSquare, Calendar, Shield, Mail, Bell, Database, Zap, Search, BarChart, RefreshCw } from "lucide-react";
 
-export default function Settings() {
+function SettingsContent() {
   const [trackedTopics, setTrackedTopics] = useState([
     "AI Marketing",
     "Marketing Automation",
@@ -407,5 +408,13 @@ export default function Settings() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function Settings() {
+  return (
+    <Layout>
+      <SettingsContent />
+    </Layout>
   );
 }

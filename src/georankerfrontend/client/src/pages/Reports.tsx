@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
+import Layout from "../components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Checkbox } from "../components/ui/checkbox";
+import { Badge } from "../components/ui/badge";
 import { FileText, BarChart3, TrendingUp, Download, Calendar, Settings, Eye } from "lucide-react";
 
-export default function Reports() {
+function ReportsContent() {
   const [selectedReport, setSelectedReport] = useState("visibility");
   const [frequency, setFrequency] = useState("weekly");
   const [emailRecipients, setEmailRecipients] = useState("");
@@ -269,5 +270,13 @@ export default function Reports() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function Reports() {
+  return (
+    <Layout>
+      <ReportsContent />
+    </Layout>
   );
 }
