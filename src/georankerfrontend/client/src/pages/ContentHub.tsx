@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import Layout from "../components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Badge } from "../components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Calendar, PenTool, Target, RefreshCw, FileText, Edit, Share2, Search, Lightbulb, Clock, CheckCircle, AlertCircle, Settings, BookOpen, TrendingUp, Users, MessageSquare, Star, ArrowUp, ArrowDown, BarChart } from "lucide-react";
 
-export default function ContentHub() {
+function ContentHubContent() {
   const [activeTab, setActiveTab] = useState("plan");
   const [selectedTopic, setSelectedTopic] = useState("");
   const [contentType, setContentType] = useState("");
@@ -565,5 +566,13 @@ export default function ContentHub() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function ContentHub() {
+  return (
+    <Layout>
+      <ContentHubContent />
+    </Layout>
   );
 }

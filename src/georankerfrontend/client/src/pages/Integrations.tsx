@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import Layout from "../components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Badge } from "../components/ui/badge";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Upload, Info, CheckCircle, XCircle, AlertCircle, Settings, Zap, Users, FileText, MessageSquare, ShoppingCart } from "lucide-react";
 
-export default function Integrations() {
+function IntegrationsContent() {
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
   const [setupStep, setSetupStep] = useState(1);
 
@@ -340,5 +341,13 @@ export default function Integrations() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function Integrations() {
+  return (
+    <Layout>
+      <IntegrationsContent />
+    </Layout>
   );
 }
