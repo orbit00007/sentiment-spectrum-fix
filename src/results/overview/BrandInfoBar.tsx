@@ -8,7 +8,7 @@ const BrandInfoBar = () => {
   const brandWebsite = getBrandWebsite();
   const modelName = getModelName();
   const keywords = getAnalysisKeywords();
-  const brandLogo = getBrandLogo(brandName);
+  const brandLogo = getBrandLogo();
   const analysisDate = getAnalysisDate();
   
   const models = modelName?.split(",").map((m) => m.trim()).filter(m => m === 'openai' || m === 'gemini') || [];
