@@ -54,31 +54,6 @@ export const getBrandWebsite = (): string => {
   return analytics?.brand_website || '';
 };
 
-// Get brand logo - accepts optional brand name parameter
-export const getBrandLogo = (brandName?: string): string => {
-  if (brandName) {
-    // Get logo for specific brand from brandInfoWithLogos
-    const brandInfo = getBrandInfoWithLogos();
-    const brand = brandInfo.find(b => b.brand === brandName);
-    if (brand?.logo) return brand.logo;
-    
-    // Fallback to brand_websites mapping
-    const analytics = getAnalytics();
-    const brandWebsites = analytics?.brand_websites || {};
-    const website = brandWebsites[brandName];
-    if (website) {
-      const domain = website.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-      return formatLogoUrl(domain);
-    }
-  }
-  
-  // Default: get primary brand logo
-  const brandWebsite = getBrandWebsite();
-  if (!brandWebsite) return '';
-  const domain = brandWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-  return formatLogoUrl(domain);
-};
-
 // Get model name
 export const getModelName = (): string => {
   const analytics = getAnalytics();
@@ -112,7 +87,7 @@ export const getAnalysisKeywords = (): string[] => {
   return Object.values(searchKeywords).map((k: any) => k.name);
 };
 
-// Get keywords with details
+// Get keywords with details (returns string array for compatibility)
 export const getKeywords = (): string[] => {
   return getAnalysisKeywords();
 };
@@ -182,6 +157,96 @@ export const getDepthNotes = (): Array<{ source: string; notes: string[] }> => {
     source,
     notes: data.pages_used || []
   }));
+};
+
+// Get brand websites map
+export const getBrandWebsites = (): Record<string, string> => {
+  const analytics = getAnalytics();
+  return analytics?.brand_websites || {};
+};
+
+// Get product ID
+export const getProductId = (): string => {
+  if (!currentAnalyticsData) {
+    loadAnalyticsFromStorage();
+  }
+  return currentAnalyticsData?.product_id || '';
+};
+
+// ============ CORE DATA FUNCTION - MUST BE DEFINED BEFORE DEPENDENT FUNCTIONS ============
+
+// Get brand info with logos - with safety checks
+export const getBrandInfoWithLogos = (): Array<{
+  brand: string;
+  geo_score: number;
+  mention_score: number;
+  mention_count: number;
+  logo: string;
+  geo_tier: string;
+  mention_tier: string;
+  summary: string;
+  outlook: string;
+  mention_breakdown: Record<string, number> | null;
+}> => {
+  const analytics = getAnalytics();
+  
+  // Early return with empty array if no analytics
+  if (!analytics) {
+    return [];
+  }
+  
+  const brands = analytics?.brands;
+  
+  // Only warn once per session about missing brands array
+  if (!brands || !Array.isArray(brands)) {
+    const hasWarned = sessionStorage.getItem('analytics_brands_warning');
+    if (!hasWarned) {
+      console.warn('⚠️ [ANALYTICS] No brands array found in analytics data');
+      sessionStorage.setItem('analytics_brands_warning', 'true');
+    }
+    return [];
+  }
+  
+  // Map the data to ensure consistent field names and format logos
+  return brands.map((brand: any) => ({
+    brand: brand.brand,
+    geo_score: brand.geo_score || 0,
+    mention_score: brand.mention_score || 0,
+    mention_count: brand.mention_count || 0,
+    logo: formatLogoUrl(brand.logo || ''),
+    geo_tier: brand.geo_tier || 'Low',
+    mention_tier: brand.mention_tier || 'Low',
+    summary: brand.summary || '',
+    outlook: brand.outlook || 'Neutral',
+    mention_breakdown: brand.mention_breakdown || null
+  }));
+};
+
+// ============ DEPENDENT FUNCTIONS - USE getBrandInfoWithLogos ============
+
+// Get brand logo - accepts optional brand name parameter
+export const getBrandLogo = (brandName?: string): string => {
+  if (brandName) {
+    // Get logo for specific brand from brandInfoWithLogos
+    const brandInfo = getBrandInfoWithLogos();
+    const brand = brandInfo.find(b => b.brand === brandName);
+    if (brand?.logo) return brand.logo;
+    
+    // Fallback to brand_websites mapping
+    const analytics = getAnalytics();
+    const brandWebsites = analytics?.brand_websites || {};
+    const website = brandWebsites[brandName];
+    if (website) {
+      const domain = website.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+      return formatLogoUrl(domain);
+    }
+  }
+  
+  // Default: get primary brand logo
+  const brandWebsite = getBrandWebsite();
+  if (!brandWebsite) return '';
+  const domain = brandWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+  return formatLogoUrl(domain);
 };
 
 // Get AI visibility metrics
@@ -262,8 +327,13 @@ export const getCompetitorData = (): Array<{
   });
 };
 
-// Legacy competitor data export - returns callable function result
-export const competitorData = getCompetitorData();
+// Legacy competitor data export - use as a getter function, NOT a constant
+// Components should use getCompetitorData() instead
+export const competitorData = {
+  get data() {
+    return getCompetitorData();
+  }
+};
 
 // Get competitor names
 export const getCompetitorNames = (): string[] => {
@@ -317,53 +387,6 @@ export const getCompetitorSentiment = (): Array<{
     outlook: b.outlook,
     summary: b.summary,
     logo: b.logo
-  }));
-};
-
-// Get brand info with logos - with safety checks
-export const getBrandInfoWithLogos = (): Array<{
-  brand: string;
-  geo_score: number;
-  mention_score: number;
-  mention_count: number;
-  logo: string;
-  geo_tier: string;
-  mention_tier: string;
-  summary: string;
-  outlook: string;
-  mention_breakdown: Record<string, number> | null;
-}> => {
-  const analytics = getAnalytics();
-  
-  // Early return with empty array if no analytics
-  if (!analytics) {
-    return [];
-  }
-  
-  const brands = analytics?.brands;
-  
-  // Only warn once per session about missing brands array
-  if (!brands || !Array.isArray(brands)) {
-    const hasWarned = sessionStorage.getItem('analytics_brands_warning');
-    if (!hasWarned) {
-      console.warn('⚠️ [ANALYTICS] No brands array found in analytics data');
-      sessionStorage.setItem('analytics_brands_warning', 'true');
-    }
-    return [];
-  }
-  
-  // Map the data to ensure consistent field names and format logos
-  return brands.map((brand: any) => ({
-    brand: brand.brand,
-    geo_score: brand.geo_score || 0,
-    mention_score: brand.mention_score || 0,
-    mention_count: brand.mention_count || 0,
-    logo: formatLogoUrl(brand.logo || ''),
-    geo_tier: brand.geo_tier || 'Low',
-    mention_tier: brand.mention_tier || 'Low',
-    summary: brand.summary || '',
-    outlook: brand.outlook || 'Neutral',
-    mention_breakdown: brand.mention_breakdown || null
   }));
 };
 
@@ -522,18 +545,4 @@ export const clearAnalyticsData = () => {
   localStorage.removeItem(ANALYTICS_STORAGE_KEY);
   localStorage.removeItem(`${ANALYTICS_STORAGE_KEY}__sig`);
   sessionStorage.removeItem('analytics_brands_warning');
-};
-
-// Get product ID
-export const getProductId = (): string => {
-  if (!currentAnalyticsData) {
-    loadAnalyticsFromStorage();
-  }
-  return currentAnalyticsData?.product_id || '';
-};
-
-// Get brand websites map
-export const getBrandWebsites = (): Record<string, string> => {
-  const analytics = getAnalytics();
-  return analytics?.brand_websites || {};
 };
