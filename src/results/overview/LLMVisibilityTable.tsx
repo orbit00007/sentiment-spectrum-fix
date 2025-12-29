@@ -9,27 +9,28 @@ export const LLMVisibilityTable = () => {
   const platformData = Object.entries(llmData).map(([platform, data]: [string, any]) => ({
     platform: platform,
     displayName: platform === 'openai' ? 'ChatGPT' : platform.charAt(0).toUpperCase() + platform.slice(1),
-    appearances: data.brand_mentions_count || 0,
-    keywords: data.queries_with_brand || 0,
-    avgPosition: `#${data.average_brand_rank?.toFixed(1) || 'N/A'}`
+    appearances: data.mentions_count || 0,
+    prompts: data.prompts || 0,
+    avgPosition: data.average_rank ? `#${data.average_rank.toFixed(1)}` : '0',
+    sources: data.sources || 0
   }));
 
   return (
     <div className="bg-card rounded-xl border border-border p-4 md:p-6 overflow-hidden">
       <div className="flex items-center gap-2 mb-1">
         <Bot className="w-5 h-5 text-primary" />
-        <h3 className="text-lg font-semibold text-foreground">AI Search Visibility</h3>
+        <h3 className="text-lg font-semibold text-foreground">Model-Wise Visibility</h3>
       </div>
-      <p className="text-xs text-muted-foreground mb-4">Appearances by Platform</p>
+      <p className="text-xs text-muted-foreground mb-4">Your brand's ranking & reach across AI platforms</p>
       
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
               <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Platform</th>
-              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Appearances</th>
-              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Keywords</th>
-              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Avg Position</th>
+              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Mentions</th>
+              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Number of Prompts</th>
+              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Avg Rank</th>
             </tr>
           </thead>
           <tbody>
@@ -45,13 +46,13 @@ export const LLMVisibilityTable = () => {
                   <span className="text-lg font-semibold text-foreground">{row.appearances}</span>
                 </td>
                 <td className="py-3 px-4 text-center">
-                  <span className="text-foreground">{row.keywords}</span>
+                  <span className="text-foreground">{row.prompts}</span>
                 </td>
                 <td className="py-3 px-4 text-center">
                   <span className={`font-semibold ${
-                    parseFloat(row.avgPosition.slice(1)) <= 2 ? 'text-green-500' :
-                    parseFloat(row.avgPosition.slice(1)) <= 3 ? 'text-amber-500' :
-                    'text-red-500'
+                    row.avgPosition !== 'N/A' && parseFloat(row.avgPosition.slice(1)) <= 2 ? 'text-green-500' :
+                    row.avgPosition !== 'N/A' && parseFloat(row.avgPosition.slice(1)) <= 3 ? 'text-amber-500' :
+                    row.avgPosition !== 'N/A' ? 'text-red-500' : 'text-muted-foreground'
                   }`}>{row.avgPosition}</span>
                 </td>
               </tr>

@@ -5,6 +5,7 @@ import { getProductAnalytics } from "@/apiHelpers";
 import { setAnalyticsData, loadAnalyticsFromStorage } from "@/results/data/analyticsData";
 import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorized, isUnauthorizedError } from "@/lib/authGuard";
+import { useAnalysisState } from "@/hooks/useAnalysisState";
 
 interface AnalyticsData {
   id?: string;
@@ -21,8 +22,7 @@ export type TabType =
   | "executive-summary" 
   | "prompts" 
   | "sources-all" 
-  | "competitors-comparisons" 
-  | "brand-sentiment" 
+  | "competitors-comparisons"
   | "recommendations";
 
 interface ResultsContextType {
@@ -33,6 +33,7 @@ interface ResultsContextType {
   dataReady: boolean;
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  isAnalyzing: boolean; // Single source of truth from hook
 }
 
 const ResultsContext = createContext<ResultsContextType | null>(null);
@@ -62,15 +63,22 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Single source of truth for analysis state
+  const { 
+    isAnalyzing, 
+    triggeredAt, 
+    completeAnalysis, 
+    isNewerThanTrigger,
+    startAnalysis 
+  } = useAnalysisState();
+
   // Map URL paths to tab types
   const pathToTab: Record<string, TabType> = {
-    "/newresults": "overview",
-    "/newresults/executive-summary": "executive-summary",
-    "/newresults/prompts": "prompts",
-    "/newresults/sources-all": "sources-all",
-    "/newresults/competitors-comparisons": "competitors-comparisons",
-    "/newresults/brand-sentiment": "brand-sentiment",
-    "/newresults/recommendations": "recommendations",
+    "/results": "overview",
+    "/results/executive-summary": "executive-summary",
+    "/results/prompts": "prompts",
+    "/results/sources-all": "sources-all",
+    "/results/competitors-comparisons": "competitors-comparisons",
   };
 
   // Sync activeTab with URL path
@@ -86,13 +94,12 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
   const setActiveTab = (tab: TabType) => {
     setActiveTabState(tab);
     const tabToPath: Record<TabType, string> = {
-      "overview": "/newresults",
-      "executive-summary": "/newresults/executive-summary",
-      "prompts": "/newresults/prompts",
-      "sources-all": "/newresults/sources-all",
-      "competitors-comparisons": "/newresults/competitors-comparisons",
-      "brand-sentiment": "/newresults/brand-sentiment",
-      "recommendations": "/newresults/recommendations",
+      "overview": "/results",
+      "executive-summary": "/results/executive-summary",
+      "prompts": "/results/prompts",
+      "sources-all": "/results/sources-all",
+      "competitors-comparisons": "/results/competitors-comparisons",
+      "recommendations": "/results/recommendations",
     };
     const targetPath = tabToPath[tab];
     if (targetPath && location.pathname !== targetPath) {
@@ -120,8 +127,8 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
   const accessTokenRef = useRef<string>("");
   const initialPollDoneRef = useRef(false);
   const toastRef = useRef(toast);
-  const analysisTriggeredAtRef = useRef<number | null>(null);
   const hasFetchedRef = useRef(false);
+  const completionToastShownRef = useRef<string | null>(null);
 
   useEffect(() => {
     toastRef.current = toast;
@@ -135,6 +142,8 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
     accessTokenRef.current = localStorage.getItem("access_token") || "";
   }, []);
 
+  const lastPersistedAnalyticsSigRef = useRef<string | null>(null);
+
   // Try to load analytics from localStorage on mount
   useEffect(() => {
     const loaded = loadAnalyticsFromStorage();
@@ -144,26 +153,37 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
     }
   }, []);
 
-  // Update analyticsData whenever currentAnalytics changes
+  // Persist analytics ONLY when NEW completed data arrives
   useEffect(() => {
-    if (currentAnalytics && currentAnalytics.status?.toLowerCase() === "completed") {
-      setAnalyticsData({
-        analytics: [currentAnalytics],
-        count: 1,
-        limit: 1,
-        product_id: productData?.id || "",
-      });
-      setDataReady(true);
-    } else if (previousAnalytics && previousAnalytics.status?.toLowerCase() === "completed") {
-      setAnalyticsData({
-        analytics: [previousAnalytics],
-        count: 1,
-        limit: 1,
-        product_id: productData?.id || "",
-      });
-      setDataReady(true);
-    }
-  }, [currentAnalytics, previousAnalytics, productData]);
+    const pick =
+      currentAnalytics && currentAnalytics.status?.toLowerCase() === "completed"
+        ? currentAnalytics
+        : previousAnalytics && previousAnalytics.status?.toLowerCase() === "completed"
+          ? previousAnalytics
+          : null;
+
+    if (!pick) return;
+
+    const sig = JSON.stringify({
+      productId: productData?.id || "",
+      id: pick.id,
+      date: pick.date,
+      updated_at: pick.updated_at,
+      status: pick.status,
+    });
+
+    if (lastPersistedAnalyticsSigRef.current === sig) return;
+    lastPersistedAnalyticsSigRef.current = sig;
+
+    setAnalyticsData({
+      analytics: [pick],
+      count: 1,
+      limit: 1,
+      product_id: productData?.id || "",
+    });
+
+    setDataReady(true);
+  }, [currentAnalytics, previousAnalytics, productData?.id]);
 
   const scheduleNextPoll = useCallback(
     (productId: string, wasInitialPoll: boolean) => {
@@ -239,7 +259,6 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
 
       if (!productId || !accessTokenRef.current) {
         console.log("⏸️ [POLL] Missing productId or accessToken");
-        // If no access token, trigger logout
         if (!accessTokenRef.current) {
           console.log("🔒 [POLL] No access token - redirecting to login");
           handleUnauthorized();
@@ -292,13 +311,11 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
         const res = await getProductAnalytics(productId, accessTokenRef.current);
         console.log("📊 [POLL] Analytics response received:", res);
 
-        // Check mounted state after async operation
         if (!mountedRef.current) {
           console.log("⏸️ [POLL] Component unmounted during fetch - aborting");
           return;
         }
 
-        // Double-check we haven't received data yet
         if (hasReceivedDataRef.current) {
           console.log("✅ [POLL] Data received while fetching - aborting");
           return;
@@ -314,34 +331,45 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
               mostRecentAnalysis.updated_at ||
               mostRecentAnalysis.created_at;
 
-            // Save to localStorage
-            if (res.product_id) {
-              localStorage.setItem("product_id", res.product_id);
-            }
-            if (mostRecentAnalysis.analytics?.analysis_scope?.search_keywords) {
-              const keywords = mostRecentAnalysis.analytics.analysis_scope.search_keywords;
-              localStorage.setItem(
-                "keywords",
-                JSON.stringify(keywords.map((k: string) => ({ keyword: k })))
-              );
-              localStorage.setItem("keyword_count", keywords.length.toString());
+            // Save to storage ONLY if values changed
+            try {
+              if (res.product_id) {
+                const existingPid = localStorage.getItem("product_id");
+                if (existingPid !== res.product_id) {
+                  localStorage.setItem("product_id", res.product_id);
+                }
+              }
+
+              if (mostRecentAnalysis.analytics?.analysis_scope?.search_keywords) {
+                const keywords = mostRecentAnalysis.analytics.analysis_scope.search_keywords;
+                const nextKeywords = JSON.stringify(keywords.map((k: string) => ({ keyword: k })));
+                const existingKeywords = localStorage.getItem("keywords");
+                if (existingKeywords !== nextKeywords) {
+                  localStorage.setItem("keywords", nextKeywords);
+                  localStorage.setItem("keyword_count", String(keywords.length));
+                }
+              }
+            } catch {
+              // ignore storage errors
             }
 
             const prevAnalytics = previousAnalyticsRef.current;
             const isPreviousCompleted = prevAnalytics?.status?.toLowerCase() === "completed";
 
-            // Check if this analysis is newer than when we triggered a new analysis
+            // Use the hook's isNewerThanTrigger to check if this is new data
             const analysisTimestamp = currentDate ? new Date(currentDate).getTime() : 0;
-            const isNewAnalysis = !analysisTriggeredAtRef.current || analysisTimestamp > analysisTriggeredAtRef.current;
+            const isNewData = isNewerThanTrigger(analysisTimestamp);
 
-            console.log(`📅 [POLL] Analysis date: ${currentDate}, Trigger time: ${analysisTriggeredAtRef.current ? new Date(analysisTriggeredAtRef.current).toISOString() : 'none'}, isNew: ${isNewAnalysis}`);
+            console.log(`📅 [POLL] Analysis date: ${currentDate}, Trigger time: ${triggeredAt ? new Date(triggeredAt).toISOString() : 'none'}, isNew: ${isNewData}`);
 
-            // COMPLETED or FAILED = STOP ONLY IF it's a NEW analysis
-            if ((currentStatus === "completed" || currentStatus === "failed") && isNewAnalysis) {
+            // COMPLETED or FAILED = STOP ONLY IF it's a NEWER analysis
+            if ((currentStatus === "completed" || currentStatus === "failed") && isNewData) {
               hasReceivedDataRef.current = true;
               pollingAttemptsRef.current = 0;
               initialPollDoneRef.current = true;
-              analysisTriggeredAtRef.current = null;
+              
+              // Clear analysis state via hook
+              completeAnalysis();
 
               // Clear all timers immediately
               if (pollingTimerRef.current) {
@@ -361,14 +389,18 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
                 prevAnalytics?.updated_at ||
                 prevAnalytics?.created_at;
 
-              // Show toast only for newly completed analysis
+              // Show toast only once per unique completion
+              const toastKey = `${productId}_${currentDate}`;
               if (currentStatus === "completed" && previousDate && currentDate && currentDate > previousDate) {
-                toastRef.current({
-                  title: "Analysis Completed",
-                  description: "Your analysis is now complete and available on this page.",
-                  duration: 10000,
-                });
-                console.log("🎉 [POLL] Showing completion notification for new completed analysis");
+                if (completionToastShownRef.current !== toastKey) {
+                  completionToastShownRef.current = toastKey;
+                  toastRef.current({
+                    title: "Analysis Completed",
+                    description: "Your analysis is now complete. Please refresh the page to see the updated insights.",
+                    duration: 10000,
+                  });
+                  console.log("🎉 [POLL] Showing completion notification for new completed analysis");
+                }
               }
 
               if (currentStatus === "completed") {
@@ -384,7 +416,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
             }
 
             // OLD completed data found but waiting for NEW analysis - continue polling
-            if ((currentStatus === "completed" || currentStatus === "failed") && !isNewAnalysis) {
+            if ((currentStatus === "completed" || currentStatus === "failed") && !isNewData) {
               console.log(`⏳ [POLL] Found OLD ${currentStatus} analysis - waiting for NEW analysis, continuing poll`);
               setCurrentAnalytics(mostRecentAnalysis);
               setIsLoading(true);
@@ -466,10 +498,10 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
         console.log("🔓 [POLL] Lock released");
       }
     },
-    [scheduleNextPoll]
+    [scheduleNextPoll, isNewerThanTrigger, triggeredAt, completeAnalysis]
   );
 
-  // Parse location.state
+  // Parse location.state and handle incoming navigation
   useEffect(() => {
     mountedRef.current = true;
     const state = location.state as any;
@@ -482,17 +514,22 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
       return;
     }
 
+    // If isNew flag is set from InputPage, ensure analysis state is started
+    if (state?.isNew && state?.productId && state?.analysisTriggeredAt) {
+      console.log("🆕 [STATE] New analysis detected from InputPage");
+      // The startAnalysis was already called in InputPage, but we need to ensure loading state
+      setIsLoading(true);
+      setDataReady(false);
+      hasReceivedDataRef.current = false;
+      hasFetchedRef.current = false;
+    }
+
     if (state?.product?.id) {
       setProductData({
         id: state.product.id,
         name: state.product.name || state.product.website || state.product.id,
         website: state.website || state.product.website || "",
       });
-
-      if (state.analysisTriggeredAt) {
-        analysisTriggeredAtRef.current = state.analysisTriggeredAt;
-        console.log("📅 [STATE] New analysis triggered at:", new Date(analysisTriggeredAtRef.current!).toISOString());
-      }
     } else if (state?.productId || state?.id) {
       const pid = state.productId || state.id;
       setProductData({
@@ -500,20 +537,13 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
         name: state.website || pid.toString(),
         website: state.website || "",
       });
-
-      if (state.analysisTriggeredAt) {
-        analysisTriggeredAtRef.current = state.analysisTriggeredAt;
-        console.log("📅 [STATE] New analysis triggered at:", new Date(analysisTriggeredAtRef.current!).toISOString());
-      }
     } else if (products && products.length > 0) {
-      // Use products from auth context if available
       setProductData({
         id: products[0].id,
         name: products[0].name || products[0].website,
         website: products[0].website || "",
       });
     } else {
-      // Try to load from localStorage before redirecting
       const storedProductId = localStorage.getItem("product_id");
       if (storedProductId) {
         setProductData({
@@ -530,7 +560,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
     return () => {
       mountedRef.current = false;
     };
-  }, [location.state, navigate, products]);
+  }, [location.state, navigate, products, startAnalysis]);
 
   // Load previous from localStorage
   useEffect(() => {
@@ -610,7 +640,6 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
       console.log("🛑 [UNMOUNT] Component unmounting - cleaning up");
       mountedRef.current = false;
       currentProductIdRef.current = null;
-      analysisTriggeredAtRef.current = null;
       hasFetchedRef.current = false;
     };
   }, []);
@@ -625,6 +654,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
         dataReady,
         activeTab,
         setActiveTab,
+        isAnalyzing, // From hook - single source of truth
       }}
     >
       {children}
