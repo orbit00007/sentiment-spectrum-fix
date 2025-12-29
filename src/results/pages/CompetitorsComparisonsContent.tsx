@@ -47,9 +47,9 @@ const CompetitorsComparisonsContent = () => {
     }
   }, [otherCompetitors, selectedCompetitor]);
 
-  const brand = competitorVisibility.find((c) => c.name === brandName);
+  const brand = competitorVisibility.find((c) => c.brand === brandName);
   const competitor = competitorVisibility.find(
-    (c) => c.name === selectedCompetitor
+    (c) => c.brand === selectedCompetitor
   );
 
   const brandSentiment = competitorSentiment.find((s) => s.brand === brandName);
@@ -170,9 +170,9 @@ const CompetitorsComparisonsContent = () => {
                 <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Brand
                 </th>
-                {keywords.map((keyword) => (
+                {keywords.map((keyword, idx) => (
                   <th
-                    key={keyword}
+                    key={`kw-${idx}`}
                     className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
                   >
                     {keyword}

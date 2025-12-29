@@ -1,4 +1,326 @@
-// FIX: Updated getBrandInfoWithLogos to prevent repeated warnings
+// Analytics Data Module - Complete implementation with safety checks
+
+const ANALYTICS_STORAGE_KEY = 'geo_analytics_data';
+let currentAnalyticsData: any = null;
+
+// Format logo URL using Clearbit service
+export const formatLogoUrl = (domain: string): string => {
+  if (!domain) return '';
+  // Remove protocol and www if present
+  const cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+  return `https://logo.clearbit.com/${cleanDomain}`;
+};
+
+// Load analytics from localStorage
+export const loadAnalyticsFromStorage = (): boolean => {
+  try {
+    const stored = localStorage.getItem(ANALYTICS_STORAGE_KEY);
+    if (stored) {
+      currentAnalyticsData = JSON.parse(stored);
+      console.log('📦 [ANALYTICS] Data loaded from localStorage');
+      return true;
+    }
+  } catch (e) {
+    console.error('Failed to load analytics from localStorage:', e);
+  }
+  return false;
+};
+
+// Check if analytics data is available
+export const hasAnalyticsData = (): boolean => {
+  if (!currentAnalyticsData) {
+    loadAnalyticsFromStorage();
+  }
+  return !!(currentAnalyticsData?.analytics?.[0]?.analytics);
+};
+
+// Get the full analytics object
+export const getAnalytics = (): any => {
+  if (!currentAnalyticsData) {
+    loadAnalyticsFromStorage();
+  }
+  return currentAnalyticsData?.analytics?.[0]?.analytics || null;
+};
+
+// Get brand name
+export const getBrandName = (): string => {
+  const analytics = getAnalytics();
+  return analytics?.brand_name || '';
+};
+
+// Get brand website
+export const getBrandWebsite = (): string => {
+  const analytics = getAnalytics();
+  return analytics?.brand_website || '';
+};
+
+// Get brand logo - accepts optional brand name parameter
+export const getBrandLogo = (brandName?: string): string => {
+  if (brandName) {
+    // Get logo for specific brand from brandInfoWithLogos
+    const brandInfo = getBrandInfoWithLogos();
+    const brand = brandInfo.find(b => b.brand === brandName);
+    if (brand?.logo) return brand.logo;
+    
+    // Fallback to brand_websites mapping
+    const analytics = getAnalytics();
+    const brandWebsites = analytics?.brand_websites || {};
+    const website = brandWebsites[brandName];
+    if (website) {
+      const domain = website.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+      return formatLogoUrl(domain);
+    }
+  }
+  
+  // Default: get primary brand logo
+  const brandWebsite = getBrandWebsite();
+  if (!brandWebsite) return '';
+  const domain = brandWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+  return formatLogoUrl(domain);
+};
+
+// Get model name
+export const getModelName = (): string => {
+  const analytics = getAnalytics();
+  return analytics?.models_used || '';
+};
+
+// Get analysis date
+export const getAnalysisDate = (): string => {
+  if (!currentAnalyticsData) {
+    loadAnalyticsFromStorage();
+  }
+  const rawDate = currentAnalyticsData?.analytics?.[0]?.date;
+  if (!rawDate) return '';
+  
+  try {
+    const date = new Date(rawDate);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  } catch {
+    return rawDate;
+  }
+};
+
+// Get analysis keywords
+export const getAnalysisKeywords = (): string[] => {
+  const analytics = getAnalytics();
+  const searchKeywords = analytics?.search_keywords || {};
+  return Object.values(searchKeywords).map((k: any) => k.name);
+};
+
+// Get keywords with details
+export const getKeywords = (): string[] => {
+  return getAnalysisKeywords();
+};
+
+// Get search keywords with prompts
+export const getSearchKeywordsWithPrompts = (): Array<{ id: string; name: string; prompts: string[] }> => {
+  const analytics = getAnalytics();
+  const searchKeywords = analytics?.search_keywords || {};
+  return Object.entries(searchKeywords).map(([id, data]: [string, any]) => ({
+    id,
+    name: data.name || '',
+    prompts: data.prompts || []
+  }));
+};
+
+// Get search keywords (simple list)
+export const getSearchKeywords = (): string[] => {
+  return getAnalysisKeywords();
+};
+
+// Get LLM data
+export const getLlmData = (): Record<string, any> => {
+  const analytics = getAnalytics();
+  return analytics?.llm_wise_data || {};
+};
+
+// Get executive summary
+export const getExecutiveSummary = (): any => {
+  const analytics = getAnalytics();
+  return analytics?.executive_summary || {
+    brand_score_and_tier: '',
+    strengths: [],
+    weaknesses: [],
+    competitor_positioning: { leaders: [], mid_tier: [], laggards: [] },
+    prioritized_actions: [],
+    conclusion: ''
+  };
+};
+
+// Get recommendations
+export const getRecommendations = (): Array<{
+  overall_insight: string;
+  suggested_action: string;
+  overall_effort: string;
+  impact: string;
+}> => {
+  const analytics = getAnalytics();
+  return analytics?.recommendations || [];
+};
+
+// Get platform presence
+export const getPlatformPresence = (): Record<string, string> => {
+  const analytics = getAnalytics();
+  return analytics?.platform_presence || {};
+};
+
+// Get sources data
+export const getSourcesData = (): Record<string, any> => {
+  const analytics = getAnalytics();
+  return analytics?.sources_and_content_impact || {};
+};
+
+// Get depth notes from sources
+export const getDepthNotes = (): Array<{ source: string; notes: string[] }> => {
+  const sourcesData = getSourcesData();
+  return Object.entries(sourcesData).map(([source, data]: [string, any]) => ({
+    source,
+    notes: data.pages_used || []
+  }));
+};
+
+// Get AI visibility metrics
+export const getAIVisibilityMetrics = (): {
+  score: number;
+  tier: string;
+  brandPosition: number;
+  totalBrands: number;
+  positionBreakdown: { topPosition: number; midPosition: number; lowPosition: number };
+} => {
+  const brandInfoWithLogos = getBrandInfoWithLogos();
+  const brandName = getBrandName();
+  
+  if (!brandInfoWithLogos.length || !brandName) {
+    return {
+      score: 0,
+      tier: 'Low',
+      brandPosition: 0,
+      totalBrands: 0,
+      positionBreakdown: { topPosition: 0, midPosition: 0, lowPosition: 0 }
+    };
+  }
+  
+  const brandInfo = brandInfoWithLogos.find(b => b.brand === brandName);
+  const sortedByGeo = [...brandInfoWithLogos].sort((a, b) => a.geo_score - b.geo_score);
+  const brandIndex = sortedByGeo.findIndex(b => b.brand === brandName);
+  
+  // Calculate position breakdown
+  const total = brandInfoWithLogos.length;
+  const topThreshold = Math.ceil(total / 3);
+  const midThreshold = Math.ceil((total * 2) / 3);
+  
+  let topPosition = 0, midPosition = 0, lowPosition = 0;
+  brandInfoWithLogos.forEach((b) => {
+    const pos = sortedByGeo.findIndex(s => s.brand === b.brand) + 1;
+    if (pos <= topThreshold) topPosition++;
+    else if (pos <= midThreshold) midPosition++;
+    else lowPosition++;
+  });
+  
+  return {
+    score: brandInfo?.geo_score || 0,
+    tier: brandInfo?.geo_tier || 'Low',
+    brandPosition: brandIndex + 1,
+    totalBrands: total,
+    positionBreakdown: { topPosition, midPosition, lowPosition }
+  };
+};
+
+// Get competitor data with expected shape (name, keywordScores, etc.)
+export const getCompetitorData = (): Array<{
+  name: string;
+  brand: string;
+  geo_score: number;
+  mention_score: number;
+  logo: string;
+  keywordScores: number[];
+}> => {
+  const brandInfoWithLogos = getBrandInfoWithLogos();
+  const analytics = getAnalytics();
+  const searchKeywords = analytics?.search_keywords || {};
+  const keywordIds = Object.keys(searchKeywords);
+  
+  return brandInfoWithLogos.map(b => {
+    // Build keyword scores array from mention_breakdown
+    const keywordScores = keywordIds.map(keyId => {
+      return b.mention_breakdown?.[keyId] || 0;
+    });
+    
+    return {
+      name: b.brand,
+      brand: b.brand,
+      geo_score: b.geo_score,
+      mention_score: b.mention_score,
+      logo: b.logo,
+      keywordScores
+    };
+  });
+};
+
+// Legacy competitor data export - returns callable function result
+export const competitorData = getCompetitorData();
+
+// Get competitor names
+export const getCompetitorNames = (): string[] => {
+  const brandInfoWithLogos = getBrandInfoWithLogos();
+  const brandName = getBrandName();
+  return brandInfoWithLogos
+    .filter(b => b.brand !== brandName)
+    .map(b => b.brand);
+};
+
+// Get competitor visibility with expected shape (name, visibility, totalScore)
+export const getCompetitorVisibility = (): Array<{
+  name: string;
+  brand: string;
+  score: number;
+  tier: string;
+  logo: string;
+  visibility: number;
+  totalScore: number;
+}> => {
+  const brandInfoWithLogos = getBrandInfoWithLogos();
+  
+  // Calculate max mention score for visibility percentage
+  const maxMentionScore = Math.max(...brandInfoWithLogos.map(b => b.mention_score), 1);
+  
+  return brandInfoWithLogos.map(b => ({
+    name: b.brand,
+    brand: b.brand,
+    score: b.geo_score,
+    tier: b.geo_tier,
+    logo: b.logo,
+    visibility: Math.round((b.mention_score / maxMentionScore) * 100),
+    totalScore: b.mention_score
+  }));
+};
+
+// Get competitor sentiment with expected shape (outlook)
+export const getCompetitorSentiment = (): Array<{
+  brand: string;
+  name: string;
+  sentiment: string;
+  outlook: string;
+  summary: string;
+  logo: string;
+}> => {
+  const brandInfoWithLogos = getBrandInfoWithLogos();
+  return brandInfoWithLogos.map(b => ({
+    brand: b.brand,
+    name: b.brand,
+    sentiment: b.outlook,
+    outlook: b.outlook,
+    summary: b.summary,
+    logo: b.logo
+  }));
+};
+
+// Get brand info with logos - with safety checks
 export const getBrandInfoWithLogos = (): Array<{
   brand: string;
   geo_score: number;
@@ -22,7 +344,6 @@ export const getBrandInfoWithLogos = (): Array<{
   
   // Only warn once per session about missing brands array
   if (!brands || !Array.isArray(brands)) {
-    // Check if we've already warned
     const hasWarned = sessionStorage.getItem('analytics_brands_warning');
     if (!hasWarned) {
       console.warn('⚠️ [ANALYTICS] No brands array found in analytics data');
@@ -46,7 +367,7 @@ export const getBrandInfoWithLogos = (): Array<{
   }));
 };
 
-// FIX: Add safety check for getMentionsPosition
+// Get mentions position with safety check
 export const getMentionsPosition = (): { 
   position: number; 
   tier: string; 
@@ -97,7 +418,7 @@ export const getMentionsPosition = (): {
   };
 };
 
-// FIX: Add safety check for getBrandMentionResponseRates
+// Get brand mention response rates with safety check
 export const getBrandMentionResponseRates = (): Array<{
   brand: string;
   responseRate: number;
@@ -139,7 +460,7 @@ export const getBrandMentionResponseRates = (): Array<{
   return combinedBrands.sort((a, b) => b.responseRate - a.responseRate);
 };
 
-// FIX: Add safety check for getSentiment
+// Get sentiment with safety check
 export const getSentiment = () => {
   const brandName = getBrandName();
   const brandInfoWithLogos = getBrandInfoWithLogos();
@@ -160,7 +481,7 @@ export const getSentiment = () => {
   };
 };
 
-// FIX: Clear warning flag when new data is set
+// Set analytics data with warning flag clear
 export const setAnalyticsData = (apiResponse: any) => {
   if (apiResponse && apiResponse.analytics && Array.isArray(apiResponse.analytics)) {
     const mostRecent = apiResponse.analytics?.[0];
@@ -193,4 +514,26 @@ export const setAnalyticsData = (apiResponse: any) => {
   } else {
     console.error('Invalid analytics data format');
   }
+};
+
+// Clear analytics data
+export const clearAnalyticsData = () => {
+  currentAnalyticsData = null;
+  localStorage.removeItem(ANALYTICS_STORAGE_KEY);
+  localStorage.removeItem(`${ANALYTICS_STORAGE_KEY}__sig`);
+  sessionStorage.removeItem('analytics_brands_warning');
+};
+
+// Get product ID
+export const getProductId = (): string => {
+  if (!currentAnalyticsData) {
+    loadAnalyticsFromStorage();
+  }
+  return currentAnalyticsData?.product_id || '';
+};
+
+// Get brand websites map
+export const getBrandWebsites = (): Record<string, string> => {
+  const analytics = getAnalytics();
+  return analytics?.brand_websites || {};
 };
