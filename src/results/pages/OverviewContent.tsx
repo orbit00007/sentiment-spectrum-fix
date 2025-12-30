@@ -279,9 +279,7 @@ const OverviewContent = () => {
 
             {/* Table Header */}
             <div className="grid grid-cols-[auto_1fr_auto] gap-3 text-xs text-muted-foreground mb-3 pb-2 border-b border-border">
-              <span>Brand</span>
-              <span className="text-center"></span>
-              <span>% of AI responses</span>
+              <span>% of AI responses where your brand is mentioned</span>
             </div>
 
             {/* FIX 4: Add unique keys using brand name + index */}

@@ -35,7 +35,7 @@ const CompetitorsComparisonsContent = () => {
   const brandInfo = getBrandInfoWithLogos();
   const competitorData = getCompetitorData();
   const competitorSentiment = getCompetitorSentiment();
-  const sourcesData = getSourcesData();
+  const sourcesDataRaw = getSourcesData();
 
   const otherCompetitors = competitorData.filter((c) => c.name !== brandName);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string>("");
@@ -104,6 +104,33 @@ const CompetitorsComparisonsContent = () => {
     }
     return brands;
   }, [competitorData, brandName]);
+
+  // Convert sourcesData object to array format with correct structure
+  const sourcesData = useMemo(() => {
+    if (!sourcesDataRaw || typeof sourcesDataRaw !== 'object') {
+      return [];
+    }
+
+    return Object.entries(sourcesDataRaw).map(([sourceName, sourceData]: [string, any]) => {
+      const row: any = { name: sourceName };
+      
+      // Extract mentions for each brand from the nested mentions object
+      if (sourceData && sourceData.mentions && typeof sourceData.mentions === 'object') {
+        allBrandNames.forEach(brand => {
+          const brandMentionData = sourceData.mentions[brand];
+          // Get the count from the brand's mention data
+          row[`${brand}Mentions`] = brandMentionData?.count || 0;
+        });
+      } else {
+        // If no mentions data, set all brands to 0
+        allBrandNames.forEach(brand => {
+          row[`${brand}Mentions`] = 0;
+        });
+      }
+      
+      return row;
+    });
+  }, [sourcesDataRaw, allBrandNames]);
 
   return (
     <div className="p-4 md:p-6 space-y-6 w-full max-w-full overflow-x-hidden">
@@ -339,73 +366,77 @@ const CompetitorsComparisonsContent = () => {
       </div>
 
       {/* Card 3: Number of Source Citations */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <div className="p-4 md:p-6 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">
-              Source Authority Map
-            </h3>
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs bg-card border border-border">
-                <p>
-                  Mentions of each brand across different sources as referenced
-                  by AI models.
-                </p>
-              </TooltipContent>
-            </Tooltip>
+      {sourcesData.length > 0 && (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="p-4 md:p-6 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold text-foreground">
+                Source Authority Map
+              </h3>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs bg-card border border-border">
+                  <p>
+                    Mentions of each brand across different sources as referenced
+                    by AI models.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Which content channels are driving AI recommendations
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Which content channels are driving AI recommendations
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Source
-                </th>
-                {allBrandNames.map((brand) => (
-                  <th
-                    key={brand}
-                    className={`text-center py-3 px-4 text-xs font-semibold uppercase tracking-wider ${
-                      brand === brandName
-                        ? "bg-primary/30"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {brand}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[200px]">
+                    Source
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sourcesData.map((source: any) => (
-                <tr
-                  key={source.name}
-                  className="border-b border-border/50 hover:bg-muted/20 transition-colors"
-                >
-                  <td className="py-3 px-4 font-medium text-foreground text-sm">
-                    {source.name}
-                  </td>
                   {allBrandNames.map((brand) => {
-                    const mentions = source[`${brand}Mentions`] || 0;
                     const isPrimaryBrand = brand === brandName;
                     return (
-                      <td
+                      <th
                         key={brand}
-                        className={`py-3 px-4 text-center ${
+                        className={`text-center py-3 px-4 text-xs font-semibold uppercase tracking-wider min-w-[100px] ${
                           isPrimaryBrand
-                            ? "bg-primary/5"
-                            : ""
+                            ? "bg-primary/30"
+                            : "text-muted-foreground"
                         }`}
                       >
-                        <span
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                        <div className="truncate" title={brand}>
+                          {brand}
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {sourcesData.map((source: any) => (
+                  <tr
+                    key={source.name}
+                    className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                  >
+                    <td className="py-3 px-4 font-medium text-foreground text-sm">
+                      {source.name}
+                    </td>
+                    {allBrandNames.map((brand) => {
+                      const mentions = source[`${brand}Mentions`] || 0;
+                      const isPrimaryBrand = brand === brandName;
+                      return (
+                        <td
+                          key={brand}
+                          className={`py-3 px-4 text-center ${
+                            isPrimaryBrand ? "bg-primary/5" : ""
+                          }`}
+                        >
+                          <span
+                            className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
                             isPrimaryBrand
                               ? mentions > 0
                                 ? "bg-blue-500/20 text-black-500"
@@ -414,18 +445,19 @@ const CompetitorsComparisonsContent = () => {
                               ? "bg-green-500/20 text-green-500"
                               : "bg-red-500/20 text-red-500"
                           }`}
-                        >
-                          {mentions}
-                        </span>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                          >
+                            {mentions}
+                          </span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

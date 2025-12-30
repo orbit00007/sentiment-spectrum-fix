@@ -231,19 +231,19 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
     async (productId: string, isInitialPoll: boolean = false) => {
       const attemptNum = pollingAttemptsRef.current + 1;
       console.log(
-        `🔄 [POLL] Starting poll #${attemptNum} for product:`,
+        `[POLL] Starting poll #${attemptNum} for product:`,
         productId,
         isInitialPoll ? "(INITIAL)" : "(BATCH)"
       );
 
       // Early exit checks
       if (!mountedRef.current) {
-        console.log("⏸️ [POLL] Component unmounted - aborting");
+        console.log("[POLL] Component unmounted - aborting");
         return;
       }
 
       if (isInCooldownRef.current) {
-        console.log("❄️ [POLL] In cooldown period - skipping poll");
+        console.log("[POLL] In cooldown period - skipping poll");
         return;
       }
 
@@ -253,12 +253,12 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
       }
 
       if (isPollingRef.current) {
-        console.log("⏸️ [POLL] Already polling - skipping");
+        console.log("[POLL] Already polling - skipping");
         return;
       }
 
       if (!productId || !accessTokenRef.current) {
-        console.log("⏸️ [POLL] Missing productId or accessToken");
+        console.log("[POLL] Missing productId or accessToken");
         if (!accessTokenRef.current) {
           console.log("🔒 [POLL] No access token - redirecting to login");
           handleUnauthorized();
@@ -290,7 +290,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
             !hasReceivedDataRef.current &&
             currentProductIdRef.current === productId
           ) {
-            console.log("🔄 [POLL] Cooldown complete - resetting counter and starting new batch");
+            console.log("[POLL] Cooldown complete - resetting counter and starting new batch");
             pollingAttemptsRef.current = 0;
             isInCooldownRef.current = false;
             pollProductAnalytics(productId, false);
@@ -309,10 +309,10 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
 
       try {
         const res = await getProductAnalytics(productId, accessTokenRef.current);
-        console.log("📊 [POLL] Analytics response received:", res);
+        console.log("[POLL] Analytics response received:", res);
 
         if (!mountedRef.current) {
-          console.log("⏸️ [POLL] Component unmounted during fetch - aborting");
+          console.log("[POLL] Component unmounted during fetch - aborting");
           return;
         }
 
@@ -360,7 +360,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
             const analysisTimestamp = currentDate ? new Date(currentDate).getTime() : 0;
             const isNewData = isNewerThanTrigger(analysisTimestamp);
 
-            console.log(`📅 [POLL] Analysis date: ${currentDate}, Trigger time: ${triggeredAt ? new Date(triggeredAt).toISOString() : 'none'}, isNew: ${isNewData}`);
+            console.log(`[POLL] Analysis date: ${currentDate}, Trigger time: ${triggeredAt ? new Date(triggeredAt).toISOString() : 'none'}, isNew: ${isNewData}`);
 
             // COMPLETED or FAILED = STOP ONLY IF it's a NEWER analysis
             if ((currentStatus === "completed" || currentStatus === "failed") && isNewData) {
@@ -634,7 +634,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
   // Cleanup on unmount
   useEffect(() => {
     mountedRef.current = true;
-    console.log("🎬 [MOUNT] Component mounted");
+    console.log("[MOUNT] Component mounted");
 
     return () => {
       console.log("🛑 [UNMOUNT] Component unmounting - cleaning up");
