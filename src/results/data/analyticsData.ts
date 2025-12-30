@@ -1,5 +1,37 @@
-const ANALYTICS_STORAGE_KEY = 'geo_analytics_data';
+const ANALYTICS_STORAGE_KEY_PREFIX = 'geo_analytics_data';
 let currentAnalyticsData: any = null;
+let currentUserEmail: string | null = null;
+
+// Get storage key for specific user email
+const getStorageKey = (email?: string): string => {
+  const userEmail = email || currentUserEmail || localStorage.getItem('user_email') || '';
+  if (userEmail) {
+    return `${ANALYTICS_STORAGE_KEY_PREFIX}_${userEmail.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  }
+  return ANALYTICS_STORAGE_KEY_PREFIX;
+};
+
+// Get current user email
+export const getCurrentUserEmail = (): string | null => {
+  return currentUserEmail || localStorage.getItem('user_email');
+};
+
+// Set current user email (call this on login)
+export const setCurrentUserEmail = (email: string) => {
+  currentUserEmail = email;
+  localStorage.setItem('user_email', email);
+  // Clear current data so it reloads for this user
+  currentAnalyticsData = null;
+  console.log('👤 [ANALYTICS] User email set:', email);
+};
+
+// Clear user email (call on logout)
+export const clearCurrentUserEmail = () => {
+  currentUserEmail = null;
+  currentAnalyticsData = null;
+  // Note: We don't remove user_email from localStorage to preserve it
+  console.log('👤 [ANALYTICS] User email cleared from memory');
+};
 
 // Format logo URL using Google Favicon service
 export const formatLogoUrl = (domain: string): string => {
@@ -12,13 +44,21 @@ export const formatLogoUrl = (domain: string): string => {
   return template.replace('{domain}', fullUrl);
 };
 
-// Load analytics from localStorage
+// Load analytics from localStorage for current user
 export const loadAnalyticsFromStorage = (): boolean => {
   try {
-    const stored = localStorage.getItem(ANALYTICS_STORAGE_KEY);
+    const storageKey = getStorageKey();
+    const stored = localStorage.getItem(storageKey);
     if (stored) {
       currentAnalyticsData = JSON.parse(stored);
-      console.log('📦 [ANALYTICS] Data loaded from localStorage');
+      console.log('📦 [ANALYTICS] Data loaded from localStorage for key:', storageKey);
+      return true;
+    }
+    // Also try legacy key for backwards compatibility
+    const legacyStored = localStorage.getItem(ANALYTICS_STORAGE_KEY_PREFIX);
+    if (legacyStored) {
+      currentAnalyticsData = JSON.parse(legacyStored);
+      console.log('📦 [ANALYTICS] Data loaded from legacy localStorage key');
       return true;
     }
   } catch (e) {
@@ -539,6 +579,7 @@ export const getSentiment = () => {
 export const setAnalyticsData = (apiResponse: any) => {
   if (apiResponse && apiResponse.analytics && Array.isArray(apiResponse.analytics)) {
     const mostRecent = apiResponse.analytics?.[0];
+    const storageKey = getStorageKey();
     const signature = JSON.stringify({
       product_id: apiResponse.product_id || mostRecent?.product_id,
       id: mostRecent?.id,
@@ -547,7 +588,7 @@ export const setAnalyticsData = (apiResponse: any) => {
       status: mostRecent?.status,
     });
 
-    const existingSig = localStorage.getItem(`${ANALYTICS_STORAGE_KEY}__sig`);
+    const existingSig = localStorage.getItem(`${storageKey}__sig`);
     
     // CRITICAL FIX: Always update in-memory cache FIRST
     currentAnalyticsData = apiResponse;
@@ -562,9 +603,9 @@ export const setAnalyticsData = (apiResponse: any) => {
     sessionStorage.removeItem('analytics_brands_warning');
     
     try {
-      localStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify(apiResponse));
-      localStorage.setItem(`${ANALYTICS_STORAGE_KEY}__sig`, signature);
-      console.log('📦 [ANALYTICS] New data stored in localStorage');
+      localStorage.setItem(storageKey, JSON.stringify(apiResponse));
+      localStorage.setItem(`${storageKey}__sig`, signature);
+      console.log('📦 [ANALYTICS] New data stored in localStorage for key:', storageKey);
     } catch (e) {
       console.error('Failed to store analytics data in localStorage:', e);
     }
@@ -573,13 +614,14 @@ export const setAnalyticsData = (apiResponse: any) => {
   }
 };
 
-// Clear analytics data
+// Clear analytics data for current user
 export const clearAnalyticsData = () => {
+  const storageKey = getStorageKey();
   currentAnalyticsData = null;
-  localStorage.removeItem(ANALYTICS_STORAGE_KEY);
-  localStorage.removeItem(`${ANALYTICS_STORAGE_KEY}__sig`);
+  localStorage.removeItem(storageKey);
+  localStorage.removeItem(`${storageKey}__sig`);
   sessionStorage.removeItem('analytics_brands_warning');
-  console.log('📦 [ANALYTICS] All cached data cleared');
+  console.log('📦 [ANALYTICS] Cached data cleared for key:', storageKey);
 };
 
 // Force refresh analytics data (bypasses cache)

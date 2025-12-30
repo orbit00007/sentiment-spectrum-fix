@@ -6,6 +6,7 @@ import {
   RegisterRequest,
   RegisterResponse,
 } from "@/apiHelpers";
+import { setCurrentUserEmail, clearCurrentUserEmail } from "@/results/data/analyticsData";
 
 /* =====================
    TYPES
@@ -120,6 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         console.log('Auth context: User set:', extendedUser);
 
+        // Set user email for analytics data mapping
+        setCurrentUserEmail(email);
+
         // Save first name to localStorage
         localStorage.setItem("first_name", extendedUser.first_name);
 
@@ -210,18 +214,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /* =====================
-     LOGOUT - Clear all stored data
+     LOGOUT - Clear session data but preserve analytics
      ===================== */
   const logout = () => {
-    // Clear analysis state (inline to avoid circular deps)
+    // Clear analysis state
     try {
       sessionStorage.removeItem("analysis_state");
     } catch {
       // ignore
     }
+
+    // Clear user email from analytics (but data remains in localStorage)
+    clearCurrentUserEmail();
     
-    // Clear all localStorage and sessionStorage data
-    localStorage.clear();
+    // Clear only session-related items, NOT analytics data
+    // Session items to clear:
+    const sessionItems = [
+      'access_token',
+      'refresh_token',
+      'application_id',
+      'applications',
+      'products',
+      'first_name',
+      'product_id',
+      'user_email'
+    ];
+    
+    sessionItems.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // ignore
+      }
+    });
+    
+    // Clear sessionStorage
     sessionStorage.clear();
     
     // Reset state
